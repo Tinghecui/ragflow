@@ -396,6 +396,8 @@ class ComponentBase(ABC):
         )
 
     def __init__(self, canvas, id, param: ComponentParamBase):
+        from agent.canvas import Canvas  # Local import to avoid cyclic dependency
+        assert isinstance(canvas, Canvas), "canvas must be an instance of Canvas"
         self._canvas = canvas
         self._id = id
         self._param = param
@@ -463,6 +465,8 @@ class ComponentBase(ABC):
         if len(self._canvas.path) > 1:
             reversed_cpnts.extend(self._canvas.path[-2])
         reversed_cpnts.extend(self._canvas.path[-1])
+        up_cpns = self.get_upstream()
+        reversed_up_cpnts = [cpn for cpn in reversed_cpnts if cpn in up_cpns]
 
         if self._param.query:
             self._param.inputs = []
@@ -505,7 +509,7 @@ class ComponentBase(ABC):
 
         upstream_outs = []
 
-        for u in reversed_cpnts[::-1]:
+        for u in reversed_up_cpnts[::-1]:
             if self.get_component_name(u) in ["switch", "concentrator"]:
                 continue
             if self.component_name.lower() == "generate" and self.get_component_name(u) == "retrieval":
@@ -565,8 +569,10 @@ class ComponentBase(ABC):
         if len(self._canvas.path) > 1:
             reversed_cpnts.extend(self._canvas.path[-2])
         reversed_cpnts.extend(self._canvas.path[-1])
+        up_cpns = self.get_upstream()
+        reversed_up_cpnts = [cpn for cpn in reversed_cpnts if cpn in up_cpns]
 
-        for u in reversed_cpnts[::-1]:
+        for u in reversed_up_cpnts[::-1]:
             if self.get_component_name(u) in ["switch", "answer"]:
                 continue
             return self._canvas.get_component(u)["obj"].output()[1]
@@ -584,3 +590,7 @@ class ComponentBase(ABC):
     def get_parent(self):
         pid = self._canvas.get_component(self._id)["parent_id"]
         return self._canvas.get_component(pid)["obj"]
+
+    def get_upstream(self):
+        cpn_nms = self._canvas.get_component(self._id)['upstream']
+        return cpn_nms

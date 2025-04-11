@@ -30,7 +30,7 @@ from api.utils.api_utils import (
     token_required,
     get_error_data_result,
     valid,
-    get_parser_config, valid_parser_config, dataset_readonly_fields,
+    get_parser_config, valid_parser_config, dataset_readonly_fields,check_duplicate_ids
 )
 
 
@@ -147,16 +147,6 @@ def create(tenant_id):
     else:
         valid_embedding_models = [
             "BAAI/bge-large-zh-v1.5",
-            "BAAI/bge-base-en-v1.5",
-            "BAAI/bge-large-en-v1.5",
-            "BAAI/bge-small-en-v1.5",
-            "BAAI/bge-small-zh-v1.5",
-            "jinaai/jina-embeddings-v2-base-en",
-            "jinaai/jina-embeddings-v2-small-en",
-            "nomic-ai/nomic-embed-text-v1.5",
-            "sentence-transformers/all-MiniLM-L6-v2",
-            "text-embedding-v2",
-            "text-embedding-v3",
             "maidalun1020/bce-embedding-base_v1",
         ]
         embd_model = LLMService.query(
@@ -245,6 +235,9 @@ def delete(tenant_id):
             id_list.append(kb.id)
     else:
         id_list = ids
+    unique_id_list, duplicate_messages = check_duplicate_ids(id_list, "dataset")
+    id_list = unique_id_list
+
     for id in id_list:
         kbs = KnowledgebaseService.query(id=id, tenant_id=tenant_id)
         if not kbs:
@@ -276,6 +269,11 @@ def delete(tenant_id):
             )
         else:
             return get_error_data_result(message="; ".join(errors))
+    if duplicate_messages:
+        if success_count > 0:
+            return get_result(message=f"Partially deleted {success_count} datasets with {len(duplicate_messages)} errors", data={"success_count": success_count, "errors": duplicate_messages},)
+        else:
+            return get_error_data_result(message=";".join(duplicate_messages))
     return get_result(code=settings.RetCode.SUCCESS)
 
 
